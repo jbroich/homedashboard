@@ -1,6 +1,5 @@
 package com.homedashboard.model;
 
-import com.homedashboard.Room;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;

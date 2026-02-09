@@ -1,5 +1,6 @@
 package com.homedashboard.service;
 
+import com.homedashboard.model.Room;
 import com.homedashboard.model.Measurement;
 import com.homedashboard.repository.MeasurementRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,7 +23,7 @@ public class MeasurementService {
         return measurementRepository.save(measurement);
     }
 
-    public Optional<Measurement> getLatest(String room) {
-        return measurementRepository.findFirstByRoomOrderByTsDesc(room);
+    public Optional<Measurement> getLatest(Room room) {
+        return measurementRepository.findTopByRoomOrderByTsDesc(room);
     }
 }

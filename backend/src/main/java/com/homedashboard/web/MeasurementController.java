@@ -1,5 +1,6 @@
 package com.homedashboard.web;
 
+import com.homedashboard.model.Room;
 import com.homedashboard.model.Measurement;
 import com.homedashboard.service.MeasurementService;
 import org.springframework.http.ResponseEntity;
@@ -22,8 +23,11 @@ public class MeasurementController {
     
     @GetMapping("/{room}/latest")
     public ResponseEntity<Measurement> getLatest(@PathVariable String room) {
-        return measurementService.getLatest(room)
-                .map(ResponseEntity::ok)
-                .orElse(ResponseEntity.notFound().build());
+        return Room.from(room)
+                .map(r -> measurementService.getLatest(r)
+                        .map(ResponseEntity::ok)
+                        .orElse(ResponseEntity.notFound().build()))
+                .orElse(ResponseEntity.badRequest().build());
     }
+
 }

@@ -2,7 +2,7 @@ package com.homedashboard.mqtt;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.homedashboard.Room;
+import com.homedashboard.model.Room;
 import com.homedashboard.model.Measurement;
 import com.homedashboard.service.MeasurementService;
 import jakarta.annotation.PostConstruct;
@@ -14,6 +14,7 @@ import org.springframework.stereotype.Component;
 import java.nio.charset.StandardCharsets;
 import java.time.ZonedDateTime;
 import java.util.Locale;
+import java.util.Optional;
 
 @Component
 public class MqttSubscriber {
@@ -85,10 +86,13 @@ public class MqttSubscriber {
             return;
         }
 
-        Room room = mapDeviceToRoom(deviceName);
+        Optional<Room> room = Room.from(deviceName);
+        if (room.isEmpty()) {
+            return;
+        }
 
         Measurement measurement = new Measurement();
-        measurement.setRoom(room);
+        measurement.setRoom(room.get());
         measurement.setTs(ZonedDateTime.now().toOffsetDateTime());
 
         if (hasTemperature) {
