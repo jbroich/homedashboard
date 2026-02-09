@@ -1,5 +1,6 @@
 package com.homedashboard.model;
 
+import com.homedashboard.Room;
 import jakarta.persistence.*;
 
 import java.time.OffsetDateTime;
@@ -11,7 +12,8 @@ public class Measurement {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private String room;
+    @Enumerated(EnumType.STRING)
+    private Room room;
     @Column(name = "temperature_c")
     private Double temperature;
     @Column(name = "humidity_percent")
@@ -20,11 +22,11 @@ public class Measurement {
     private Integer batteryPercentage;
     private OffsetDateTime ts;
 
-    public String getRoom() {
+    public Room getRoom() {
         return room;
     }
 
-    public void setRoom(String room) {
+    public void setRoom(Room room) {
         this.room = room;
     }
 
