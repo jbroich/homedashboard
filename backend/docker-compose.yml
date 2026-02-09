@@ -4,11 +4,23 @@ services:
     environment:
       POSTGRES_DB: roomclimate
       POSTGRES_USER: roomclimate
-      POSTGRES_PASSWORD: roomclimate
-    ports:
-      - "5432:5432"
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
       - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  backend:
+    image: ghcr.io/jbroich/homedashboard-backend:latest
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/roomclimate
+      SPRING_DATASOURCE_USERNAME: roomclimate
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      SERVER_PORT: 8081
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
 
 volumes:
   pgdata:
