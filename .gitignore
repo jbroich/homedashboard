@@ -42,6 +42,10 @@ build/
 *.log
 *.pid
 
+### Local notes and backups ###
+.local-notes/
+.local-backups/
+
 ### Local environment ###
 .env
 .env.*
