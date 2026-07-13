@@ -6,10 +6,8 @@ on a Raspberry Pi style deployment with PostgreSQL and MQTT.
 
 ## Current Scope
 
-The `main` branch contains the backend, Docker deployment files, GitHub Actions
-image publishing, and local sensor scripts. Some branches may additionally
-contain an Expo/React Native frontend; merge that work intentionally instead of
-mixing it into backend-only changes.
+The `main` branch contains the backend, Docker deployment files, and GitHub
+Actions image publishing.
 
 ## Architecture
 
@@ -26,27 +24,8 @@ sensors / Zigbee2MQTT -> MQTT -> Spring Boot -> PostgreSQL -> REST API
 ## Repository Layout
 
 - `backend/` - Spring Boot application, tests, Docker Compose files, env example.
-- `backend/scripts/` - Python sensor scripts.
 - `.github/workflows/build-and-push.yml` - GHCR image build for `main`.
 - `AGENTS.md` - durable Codex context and working rules.
-
-## Local Backend Development
-
-Start only PostgreSQL locally:
-
-```powershell
-cd backend
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres
-```
-
-Then run `HomedashboardApplication` from the IDE, or run tests directly:
-
-```powershell
-cd backend
-.\mvnw.cmd test
-```
-
-Tests use H2 and do not require a live PostgreSQL database or MQTT broker.
 
 ## Configuration
 
@@ -64,7 +43,7 @@ Important backend variables:
 - `MQTT_TOPIC`
 - `MQTT_CLIENT_ID`
 
-Local application defaults keep MQTT disabled unless it is explicitly enabled.
+Application defaults keep MQTT disabled unless it is explicitly enabled.
 
 ## API
 

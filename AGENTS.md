@@ -6,17 +6,14 @@ Home Dashboard is a private smart-home project for collecting and presenting
 room-climate measurements. The backend ingests sensor data, stores measurements
 in PostgreSQL, and exposes REST endpoints for dashboards and future clients.
 
-The `main` branch currently contains the backend, deployment files, and sensor
-scripts. Some feature branches may also contain an Expo/React Native frontend.
-Do not pull unmerged frontend feature files into a backend or documentation
-branch unless the user explicitly asks for that merge.
+The `main` branch currently contains the backend and deployment files. Keep
+documentation focused on the intended product shape instead of old local
+artifacts.
 
 ## Architecture
 
 - `backend/` contains the Spring Boot API, JPA model, MQTT ingestion, tests, and
   Docker Compose deployment files.
-- `backend/scripts/` contains Python sensor scripts for Raspberry Pi style
-  measurement ingestion.
 - `Dockerfile` builds the backend image from the repository root and publishes a
   Java 21 runtime image.
 - `.github/workflows/build-and-push.yml` builds and pushes the backend image to
