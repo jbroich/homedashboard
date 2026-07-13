@@ -45,8 +45,16 @@ function normalizeBaseUrl(value: string) {
   return trimmed.replace(/\/+$/, '');
 }
 
+function runtimeApiBaseUrl() {
+  if (typeof window === 'undefined') {
+    return undefined;
+  }
+
+  return window.__HOMEDASHBOARD_CONFIG__?.apiBaseUrl;
+}
+
 export const API_BASE_URL = normalizeBaseUrl(
-  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8081',
+  runtimeApiBaseUrl() ?? process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8081',
 );
 
 function apiPath(path: string) {
