@@ -1,12 +1,13 @@
 # Home Dashboard
 
-Home Dashboard is a private smart-home backend for collecting room-climate
-measurements and making them available through a REST API. It is intended to run
-on a Raspberry Pi style deployment with PostgreSQL and MQTT.
+Home Dashboard is a private smart-home application for collecting room-climate
+measurements and showing them in a dashboard. It is intended to run on a
+Raspberry Pi style deployment with PostgreSQL, MQTT, a Spring Boot backend, and
+an Expo frontend.
 
 ## Current Scope
 
-The `main` branch contains the backend, Docker deployment files, and GitHub
+The `main` branch contains the backend, frontend, Docker files, and GitHub
 Actions image publishing.
 
 ## Architecture
@@ -16,28 +17,34 @@ sensors / Zigbee2MQTT -> MQTT -> Spring Boot -> PostgreSQL -> REST API
 ```
 
 - Backend: Java 21, Spring Boot 3.4, Spring Web, Spring Data JPA.
+- Frontend: Expo, React Native, TypeScript.
 - Database: PostgreSQL for runtime, H2 for tests.
 - MQTT client: Eclipse Paho.
-- Deployment: Docker image built from `Dockerfile`, Compose stack in
-  `backend/docker-compose.yml`.
+- Docker: one backend image, one frontend image, and a root Compose stack.
 
 ## Repository Layout
 
-- `backend/` - Spring Boot application, tests, Docker Compose files, env example.
-- `.github/workflows/build-and-push.yml` - GHCR image build for `main`.
+- `docker-compose.yml` - Raspberry Pi runtime stack.
+- `.env.example` - template for stack configuration.
+- `backend/` - Spring Boot application, tests, backend image definition.
+- `frontend/` - Expo application, static web export, frontend image definition.
+- `.github/workflows/build-and-push.yml` - backend and frontend image builds for
+  `main`.
 - `AGENTS.md` - durable Codex context and working rules.
 
 ## Configuration
 
-Use `backend/.env.example` as the template for deployment configuration. Runtime
-values belong in `backend/.env` or server environment variables, not in Git.
+Use `.env.example` as the template for deployment configuration. Runtime values
+belong in `.env` next to `docker-compose.yml` or in server environment
+variables, not in Git.
 
-Important backend variables:
+Important runtime variables:
 
 - `POSTGRES_DB`
 - `POSTGRES_USER`
 - `POSTGRES_PASSWORD`
 - `SERVER_PORT`
+- `FRONTEND_PORT`
 - `MQTT_ENABLED`
 - `MQTT_BROKER_URL`
 - `MQTT_TOPIC`
@@ -57,15 +64,17 @@ GET /api/measurements/{room}/chart/{range}?to=2026-04-30T23:59:59%2B02:00
 
 Supported chart ranges are defined in `ChartRange`.
 
-## Raspberry Pi Deployment
+## Raspberry Pi
 
-On the deployment host:
+The Raspberry Pi runs PostgreSQL, the backend image, and the frontend image via
+`docker-compose.yml`.
+
+To refresh the running stack:
 
 ```bash
-cd backend
-cp .env.example .env
-docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml up -d
+cd /opt/homedashboard
+docker compose pull
+docker compose up -d
 ```
 
 Set real production values in `.env`. Do not commit that file.
