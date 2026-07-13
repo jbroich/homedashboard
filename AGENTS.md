@@ -6,18 +6,19 @@ Home Dashboard is a private smart-home project for collecting and presenting
 room-climate measurements. The backend ingests sensor data, stores measurements
 in PostgreSQL, and exposes REST endpoints for dashboards and future clients.
 
-The `main` branch currently contains the backend and deployment files. Keep
-documentation focused on the intended product shape instead of old local
-artifacts.
+The `main` branch currently contains the backend, frontend, and app-level Docker
+stack. Keep documentation focused on the intended product shape instead of old
+local artifacts.
 
 ## Architecture
 
+- `docker-compose.yml` is the app-level Raspberry Pi runtime stack.
 - `backend/` contains the Spring Boot API, JPA model, MQTT ingestion, tests, and
-  Docker Compose deployment files.
-- `Dockerfile` builds the backend image from the repository root and publishes a
-  Java 21 runtime image.
-- `.github/workflows/build-and-push.yml` builds and pushes the backend image to
-  GHCR from `main`.
+  backend image definition.
+- `frontend/` contains the Expo client, static web export, and frontend image
+  definition.
+- `.github/workflows/build-and-push.yml` builds and pushes backend and frontend
+  images to GHCR from `main`.
 
 The intended data flow is:
 
@@ -25,9 +26,9 @@ The intended data flow is:
 sensors / Zigbee2MQTT -> MQTT -> Spring Boot backend -> PostgreSQL -> REST API
 ```
 
-When a `frontend/` directory is present, treat it as an Expo/React Native client
-that talks to the backend REST API. Keep frontend-specific context in
-`frontend/AGENTS.md` on branches where that directory is tracked.
+The frontend talks to the backend REST API. In the Docker stack, frontend
+browser requests go through the frontend container's `/api/` proxy to the
+backend service.
 
 ## Agent Focus Areas
 
@@ -65,22 +66,21 @@ cd backend
 Start a local PostgreSQL container for backend debugging:
 
 ```powershell
-cd backend
 docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres
 ```
 
-Deploy the backend Compose stack on the Raspberry Pi host:
+Refresh the Compose stack on the Raspberry Pi host:
 
 ```bash
-cd backend
-docker compose -f docker-compose.yml pull
-docker compose -f docker-compose.yml up -d
+cd /opt/homedashboard
+docker compose pull
+docker compose up -d
 ```
 
 ## Verification
 
 - For backend code changes, run `.\mvnw.cmd test` from `backend/`.
 - For Docker/deployment changes, validate Compose syntax and environment
-  variable names against `backend/.env.example`.
+  variable names against `.env.example`.
 - For documentation-only changes, tests are not required unless the docs claim a
   command or behavior that should be verified.

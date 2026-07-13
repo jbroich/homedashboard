@@ -36,11 +36,17 @@ export class ApiError extends Error {
 }
 
 function normalizeBaseUrl(value: string) {
-  return value.replace(/\/+$/, '');
+  const trimmed = value.trim();
+
+  if (trimmed === '/' || trimmed === './') {
+    return '';
+  }
+
+  return trimmed.replace(/\/+$/, '');
 }
 
 export const API_BASE_URL = normalizeBaseUrl(
-  process.env.EXPO_PUBLIC_API_BASE_URL?.trim() || 'http://localhost:8081',
+  process.env.EXPO_PUBLIC_API_BASE_URL ?? 'http://localhost:8081',
 );
 
 function apiPath(path: string) {

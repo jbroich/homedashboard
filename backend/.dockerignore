@@ -1,0 +1,11 @@
+.env
+.env.*
+!.env.example
+
+target/
+*.log
+*.pid
+
+.github/
+.vscode/
+HELP.md

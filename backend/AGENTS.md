@@ -20,8 +20,8 @@ to MQTT topics for live sensor data.
 ## Runtime Configuration
 
 Application defaults live in `src/main/resources/application.properties`.
-Deployment values are supplied through environment variables and
-`backend/.env`.
+Deployment values are supplied through environment variables. The app-level
+Compose stack reads `.env` from the repository root or deployment directory.
 
 Rules:
 
@@ -30,7 +30,7 @@ Rules:
 - Keep local defaults developer-friendly and production values environment-only.
 - Keep `MQTT_ENABLED=false` as the safe local default unless the user explicitly
   asks otherwise.
-- If adding or renaming an environment variable, update `backend/.env.example`
+- If adding or renaming an environment variable, update the root `.env.example`
   and any affected docs.
 
 ## MQTT
@@ -78,6 +78,7 @@ Add focused tests when changing:
 
 ## Docker
 
-The root `Dockerfile` builds the backend image. The production Compose file uses
-the GHCR image and expects environment variables from `backend/.env`. The local
-Compose override exposes PostgreSQL on `127.0.0.1:5432` for IDE debugging.
+`backend/Dockerfile` builds the backend image from the `backend/` Docker
+context. The root Compose stack uses the GHCR image and expects environment
+variables from a root `.env`. The local Compose override exposes PostgreSQL on
+`127.0.0.1:5432` for IDE debugging.

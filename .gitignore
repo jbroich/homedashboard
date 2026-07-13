@@ -41,6 +41,8 @@ build/
 ### Runtime artifacts ###
 *.log
 *.pid
+frontend/dist/
+frontend/expo-env.d.ts
 
 ### Local notes and backups ###
 .local-notes/
@@ -52,7 +54,9 @@ build/
 !.env.example
 backend/.env
 backend/.env.*
-!backend/.env.example
+frontend/.env
+frontend/.env.*
+!frontend/.env.example
 
 ### Operating systems ###
 .DS_Store
