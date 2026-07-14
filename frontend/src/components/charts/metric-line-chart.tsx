@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { LayoutChangeEvent, ScrollView, View } from 'react-native';
 import Svg, { Circle, G, Line, Path, Text as SvgText } from 'react-native-svg';
+import { scaleLinear, scaleTime } from 'd3-scale';
 
 import { AppText } from '@/components/ui/text';
 import { ChartPoint } from '@/lib/api';
@@ -14,6 +15,13 @@ type MetricLineChartProps = {
   title: string;
   unit: string;
   valueKey: 'temperature' | 'humidity';
+};
+
+type Coordinate = {
+  timestamp: string;
+  value: number;
+  x: number;
+  y: number;
 };
 
 const chartHeight = 170;
@@ -47,26 +55,34 @@ export function MetricLineChart({
   );
 
   const latest = values.at(-1)?.value;
-  const stats = getMetricStats(points, valueKey);
+  const stats = getMetricStats(points, valueKey); // avg, high, low, co
   const chartWidth = Math.max(viewportWidth || 320, values.length * 30, 320);
-  const plotWidth = chartWidth - chartPadding.left - chartPadding.right;
   const plotHeight = chartHeight - chartPadding.top - chartPadding.bottom;
   const minValue = values.length ? Math.min(...values.map((point) => point.value)) : 0;
   const maxValue = values.length ? Math.max(...values.map((point) => point.value)) : 0;
   const range = maxValue - minValue || 1;
-  const paddedMin = minValue - range * 0.12;
-  const paddedMax = maxValue + range * 0.12;
-  const paddedRange = paddedMax - paddedMin || 1;
+  const paddedValueMin = minValue - range * 0.12;
+  const paddedValueMax = maxValue + range * 0.12;
+  const paddedRange = paddedValueMax - paddedValueMin || 1;
+  const yScale = scaleLinear()
+    .domain([paddedValueMin, paddedValueMax])
+    .range([chartHeight - chartPadding.bottom, chartPadding.top]);
 
-  const coordinates = values.map((point, index) => {
-    const x =
-      chartPadding.left +
-      (values.length === 1 ? plotWidth / 2 : (index / (values.length - 1)) * plotWidth);
-    const y =
-      chartPadding.top + ((paddedMax - point.value) / paddedRange) * plotHeight;
+  let coordinates: Coordinate[] = [];
+  const firstPoint = values.at(0);
+  const lastPoint = values.at(-1);
 
-    return { ...point, x, y };
-  });
+  if (firstPoint && lastPoint) {
+    const xScale = scaleTime()
+      .domain([new Date(firstPoint.timestamp), new Date(lastPoint.timestamp)])
+      .range([chartPadding.left, chartWidth - chartPadding.right]);
+
+    coordinates = values.map((point) => ({
+      ...point,
+      x: xScale(new Date(point.timestamp)),
+      y: yScale(point.value),
+    }));
+  }
 
   const path = coordinates
     .map((point, index) => `${index === 0 ? 'M' : 'L'} ${point.x} ${point.y}`)
@@ -101,7 +117,7 @@ export function MetricLineChart({
             <Svg height={chartHeight} width={chartWidth}>
               {[0, 0.5, 1].map((ratio) => {
                 const y = chartPadding.top + ratio * plotHeight;
-                const value = paddedMax - ratio * paddedRange;
+                const value = paddedValueMax - ratio * paddedRange;
 
                 return (
                   <G key={ratio}>
