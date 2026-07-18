@@ -1,4 +1,15 @@
 services:
   postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: homedashboard_local
+      POSTGRES_USER: homedashboard_local
+      # Local-only development credential. Do not reuse for deployment.
+      POSTGRES_PASSWORD: homedashboard-local-password
     ports:
-      - "127.0.0.1:5432:5432"
+      - "127.0.0.1:15432:5432"
+    volumes:
+      - homedashboard_local_pgdata:/var/lib/postgresql/data
+
+volumes:
+  homedashboard_local_pgdata:
