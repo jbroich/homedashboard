@@ -66,8 +66,26 @@ cd backend
 Start a local PostgreSQL container for backend debugging:
 
 ```powershell
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d postgres
+docker compose -f docker-compose.local.yml up -d
 ```
+
+Run the local development stack with PostgreSQL in Docker and the applications
+natively:
+
+```powershell
+# Terminal 1: backend
+cd backend
+.\mvnw.cmd -Dspring-boot.run.profiles=dev spring-boot:run
+
+# Terminal 2: frontend
+cd frontend
+Copy-Item .env.example .env.local
+npx expo start --web --port 19006
+```
+
+The local PostgreSQL database is available only on `127.0.0.1:15432`. Reset its
+sample data with `docker compose -f docker-compose.local.yml down -v`, then
+start it again.
 
 Refresh the Compose stack on the Raspberry Pi host:
 

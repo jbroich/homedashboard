@@ -22,6 +22,7 @@ to MQTT topics for live sensor data.
 Application defaults live in `src/main/resources/application.properties`.
 Deployment values are supplied through environment variables. The app-level
 Compose stack reads `.env` from the repository root or deployment directory.
+The explicit `dev` profile supplies local PostgreSQL settings and sample data.
 
 Rules:
 
@@ -32,6 +33,8 @@ Rules:
   asks otherwise.
 - If adding or renaming an environment variable, update the root `.env.example`
   and any affected docs.
+- Use Flyway migrations for schema changes. Hibernate validates the schema but
+  must not create or update it outside tests.
 
 ## MQTT
 
@@ -80,5 +83,5 @@ Add focused tests when changing:
 
 `backend/Dockerfile` builds the backend image from the `backend/` Docker
 context. The root Compose stack uses the GHCR image and expects environment
-variables from a root `.env`. The local Compose override exposes PostgreSQL on
-`127.0.0.1:5432` for IDE debugging.
+variables from a root `.env`. The standalone local Compose file exposes
+PostgreSQL on `127.0.0.1:15432` for IDE debugging.
