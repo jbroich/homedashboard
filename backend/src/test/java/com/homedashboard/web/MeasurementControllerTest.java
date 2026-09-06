@@ -30,6 +30,7 @@ class MeasurementControllerTest {
         measurementService = mock(MeasurementService.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new MeasurementController(measurementService))
+                .setControllerAdvice(GlobalExceptionHandler.class)
                 .build();
     }
 
