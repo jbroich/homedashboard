@@ -12,11 +12,14 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.time.OffsetDateTime;
 import java.util.List;
 
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.not;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -30,13 +33,19 @@ class MeasurementControllerTest {
         measurementService = mock(MeasurementService.class);
         mockMvc = MockMvcBuilders
                 .standaloneSetup(new MeasurementController(measurementService))
+                .setControllerAdvice(GlobalExceptionHandler.class)
                 .build();
     }
 
     @Test
     void returnsBadRequestForUnknownRoom() throws Exception {
         mockMvc.perform(get("/api/measurements/garage/chart/day"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("NO_SUCH_ROOM"))
+                .andExpect(jsonPath("$.message").value("No such room: garage"))
+                .andExpect(jsonPath("$.path").value("/api/measurements/garage/chart/day"));
 
         verifyNoInteractions(measurementService);
     }
@@ -44,7 +53,12 @@ class MeasurementControllerTest {
     @Test
     void returnsBadRequestForUnknownRange() throws Exception {
         mockMvc.perform(get("/api/measurements/office/chart/year"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("NO_SUCH_RANGE"))
+                .andExpect(jsonPath("$.message").value("No such range: year"))
+                .andExpect(jsonPath("$.path").value("/api/measurements/office/chart/year"));
 
         verifyNoInteractions(measurementService);
     }
@@ -53,9 +67,30 @@ class MeasurementControllerTest {
     void returnsBadRequestForInvalidToParameter() throws Exception {
         mockMvc.perform(get("/api/measurements/office/chart/month")
                         .param("to", "not-a-date"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.error").value("INVALID_REQUEST_PARAMETER"))
+                .andExpect(jsonPath("$.message").value("Invalid value for parameter 'to'."))
+                .andExpect(jsonPath("$.path").value("/api/measurements/office/chart/month"));
 
         verifyNoInteractions(measurementService);
+    }
+
+    @Test
+    void returnsSafeInternalServerErrorForUnexpectedException() throws Exception {
+        when(measurementService.getChartData(Room.OFFICE, ChartRange.DAY))
+                .thenThrow(new IllegalStateException("Sensitive implementation detail"));
+
+        mockMvc.perform(get("/api/measurements/office/chart/day"))
+                .andExpect(status().isInternalServerError())
+                .andExpect(jsonPath("$.timestamp").exists())
+                .andExpect(jsonPath("$.status").value(500))
+                .andExpect(jsonPath("$.error").value("INTERNAL_SERVER_ERROR"))
+                .andExpect(jsonPath("$.message").value("An unexpected error occurred."))
+                .andExpect(jsonPath("$.path").value("/api/measurements/office/chart/day"))
+                .andExpect(content().string(not(containsString("Sensitive implementation detail"))))
+                .andExpect(content().string(not(containsString("IllegalStateException"))));
     }
 
     @Test
