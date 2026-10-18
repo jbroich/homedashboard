@@ -78,3 +78,11 @@ docker compose up -d
 ```
 
 Set real production values in `.env`. Do not commit that file.
+
+## Deployment automation preparation
+
+The [deployment guide](deploy/cd/README.md) describes the prepared Komodo setup,
+digest-pinned application updates, mandatory pre-deployment PostgreSQL backups,
+and an isolated restore test. Scheduling and CI-triggered deployment are not
+activated by adding these files. The backend exposes `/actuator/health`, which
+reports database availability without connection details.

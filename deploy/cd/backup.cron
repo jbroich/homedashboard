@@ -1,0 +1,4 @@
+# Prepared, not installed. Host timezone must be Europe/Berlin.
+# Install in a crontab whose user can access Docker.
+HOMEDASHBOARD_ROOT=/opt/homedashboard
+17 3 * * * /bin/bash /opt/homedashboard/cd/backup.sh >> /opt/homedashboard/backups/daily.log 2>&1
