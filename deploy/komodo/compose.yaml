@@ -1,0 +1,51 @@
+# Prepared only. Set all four immutable ARM64 image references in images.env.
+# FerretDB avoids the CPU requirements of current MongoDB on Cortex-A72.
+services:
+  postgres:
+    image: ${DOCUMENTDB_IMAGE:?Set verified ARM64 digest in images.env}
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${KOMODO_DATABASE_USERNAME}
+      POSTGRES_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    mem_limit: 512m
+  ferretdb:
+    image: ${FERRETDB_IMAGE:?Set compatible verified ARM64 digest in images.env}
+    restart: unless-stopped
+    depends_on: [postgres]
+    environment:
+      FERRETDB_POSTGRESQL_URL: postgres://${KOMODO_DATABASE_USERNAME}:${KOMODO_DATABASE_PASSWORD}@postgres:5432/postgres
+    volumes:
+      - ferretdb-state:/state
+    mem_limit: 256m
+  core:
+    image: ${CORE_IMAGE:?Set verified ARM64 digest in images.env}
+    init: true
+    restart: unless-stopped
+    depends_on: [ferretdb]
+    ports: ["127.0.0.1:9120:9120"]
+    env_file: compose.env
+    environment:
+      KOMODO_DATABASE_ADDRESS: ferretdb:27017
+    volumes:
+      - keys:/config/keys
+      - ./backups:/backups
+    mem_limit: 512m
+  periphery:
+    image: ${PERIPHERY_IMAGE:?Set matching verified ARM64 digest in images.env}
+    init: true
+    restart: unless-stopped
+    depends_on: [core]
+    env_file: compose.env
+    volumes:
+      - keys:/config/keys
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /proc:/proc:ro
+      - /home/jbroich/homedashboard:/home/jbroich/homedashboard
+    mem_limit: 256m
+volumes:
+  postgres-data:
+  ferretdb-state:
+  keys:

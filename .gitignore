@@ -61,3 +61,14 @@ frontend/.env.*
 ### Operating systems ###
 .DS_Store
 Thumbs.db
+
+### Deployment secrets and runtime output ###
+/deploy/komodo/*.env
+/deploy/komodo/backups/
+/deploy/cd/backups/
+/deploy/cd/.deploy.lock
+/deploy/cd/candidate.json
+/deploy/cd/deployed-release.json
+**/__pycache__/
+*.dump
+*.dump.sha256

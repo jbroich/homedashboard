@@ -1,0 +1,3 @@
+# Prepared, not installed. Host timezone must be Europe/Berlin.
+# Install in a crontab whose user can access Docker.
+17 3 * * * /bin/bash /home/jbroich/homedashboard/cd/backup.sh >> /home/jbroich/homedashboard/backups/daily.log 2>&1
