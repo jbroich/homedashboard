@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 umask 077
-root=/home/jbroich/homedashboard
+root=${HOMEDASHBOARD_ROOT:-/opt/homedashboard}
 mkdir -p "$root/backups"
 exec 8>"$root/backups/.backup.lock"
 flock -w 300 8
@@ -15,5 +15,5 @@ test -s "$tmp"
 "${compose[@]}" exec -T postgres pg_restore --list < "$tmp" > /dev/null
 dest="$root/backups/postgres-$stamp-$$.dump"
 mv "$tmp" "$dest"
-sha256sum "$dest" > "$dest.sha256"
+(cd "$root/backups" && sha256sum "${dest##*/}") > "$dest.sha256"
 printf 'Backup validated: %s\n' "$dest"

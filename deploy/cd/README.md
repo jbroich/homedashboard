@@ -1,103 +1,199 @@
-# Prepared Home Dashboard deployment
+# Home Dashboard deployment preparation
 
-These files capture the preparation made on the Pi on 2026-10-18. Nothing here
-activates Komodo, installs cron, or deploys the application. Scripts currently
-use `/home/jbroich/homedashboard` as the runtime directory. Copy `deploy/cd/`
-to that directory as `cd/`; copy `deploy/komodo/compose.yaml` to
-`/home/jbroich/komodo/compose.yaml`. Review paths before use on another host.
+These files do not activate Komodo, install a schedule, or deploy the application.
+The application remains a Docker Compose project; GitHub Actions builds its
+images and Komodo will orchestrate deployment on the Pi.
 
-## Observed host
+## Runtime directory and settings
 
-ARM64, four Cortex-A72 cores, 3.7 GiB RAM with approximately 2.7 GiB available.
-The root filesystem had 16 GiB free. Docker memory statistics reported zero
-and could not be used. Home Dashboard runs as Compose project `homedashboard`
-with PostgreSQL 15 volume `homedashboard_pgdata`, backend port 8081, frontend
-port 8082, and external network `zigbee-stack_default`. Zigbee2MQTT and
-Mosquitto also run on this host. Cloudflared was active; local frontend HTTP
-returned 200. `/api/rooms` returned 404 and is not a usable health endpoint.
+Copy this directory to `cd/` inside the existing application runtime directory.
+That directory must contain the live `docker-compose.yml` and private `.env`.
+Set `HOMEDASHBOARD_ROOT` to its absolute path; the default is `/opt/homedashboard`.
+The prepared Pi currently uses `/home/jbroich/homedashboard`, project name
+`homedashboard`, PostgreSQL 15, backend port 8081, and frontend port 8082.
+Preserve the live Compose networks and existing database volume.
 
-## Intended release flow
+Export the settings shown in [.env.example](.env.example) in the native Periphery
+execution environment. These are script settings, separate from the application's
+private `.env`; the scripts never source or print that file. For the prepared Pi:
 
-1. Finish and merge [PR #38](https://github.com/jbroich/homedashboard/pull/38).
-   At inspection it was open at `ee143614c518963921830f7b8e6ca73d589ba4ce`.
-   It builds ARM64 images tagged with the full commit SHA and `latest`.
-2. Add a final CI release job requiring both image jobs, restricted to successful
-   non-PR runs on `main`. Expose the build steps' digest outputs and produce one
-   manifest from that run with `commit`, `backend`, and `frontend` fields.
-   Image values must be `ghcr.io/jbroich/homedashboard-backend@sha256:<64 hex>`
-   and `ghcr.io/jbroich/homedashboard-frontend@sha256:<64 hex>`.
-   Verify ARM64 support. Never resolve `latest` to construct a release pair.
-3. Configure an authenticated Komodo trigger. Before invoking the script, verify
-   repository, branch, commit, run ID, both successful builds, and manifest
-   provenance server-side. The script validates format, not CI provenance.
-   CI integration and this verification are NOT implemented yet.
-4. Configure a serial Komodo job invoking:
+```bash
+export HOMEDASHBOARD_ROOT=/home/jbroich/homedashboard
+export HOMEDASHBOARD_BACKEND_HEALTH_URL=http://127.0.0.1:8081/actuator/health
+export HOMEDASHBOARD_FRONTEND_HEALTH_URL=http://127.0.0.1:8082/
+```
 
-   ```bash
-   HOMEDASHBOARD_BACKEND_HEALTH_URL=http://127.0.0.1:8081/VALID_ENDPOINT python3 /home/jbroich/homedashboard/cd/deploy.py /path/to/trusted-release.json
-   ```
+## Release contract and deployment
 
-   This requires host networking, Python 3, Bash, flock, and Docker Compose.
-   Periphery's container loopback is different from the host loopback: configure
-   host execution or a suitable runner before using this command.
-5. The script locks concurrent deployments, validates image digests, pulls images,
-   and runs the backup script. Any backup command failure aborts before Compose up.
-   Only backend and frontend are updated; PostgreSQL is not restarted.
-6. The script requires HTTP 200 from the configured backend URL and local frontend
-   before writing `deployed-release.json`. A real backend endpoint checking database
-   access remains to be implemented, along with a Cloudflare reachability check.
-   Health failure reports failure but does not automatically roll back application
-   images or restore the database. Test the return to the previous application
-   version before enabling automatic deployment.
+Finish and merge [PR #38](https://github.com/jbroich/homedashboard/pull/38) before
+enabling release publishing. It gates the image builds on backend and frontend
+verification and builds ARM64 images tagged with the full commit SHA.
 
-## PostgreSQL backups
+The final `release-manifest` CI job requires both image jobs and publishes their
+digest outputs together as the `homedashboard-release` artifact. It runs only
+after pushes to `main`. The manifest has this shape (placeholder values shown):
 
-`backup.sh` uses pg_dump inside the running PostgreSQL container, custom format,
-private file permissions, atomic dump publication, pg_restore archive listing,
-and SHA256 output. Credentials stay inside the container. Dumps contain application
-data and must never be committed. One initial backup was created successfully.
-An archive listing and checksum do not prove a successful restore.
+```json
+{
+  "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "repository": "jbroich/homedashboard",
+  "run_id": 123,
+  "backend": "ghcr.io/jbroich/homedashboard-backend@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "frontend": "ghcr.io/jbroich/homedashboard-frontend@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+}
+```
 
-Next, restore a dump into a separate PostgreSQL 15 test instance and verify
-measurement data. Never use the production volume for this test.
+Never resolve `latest` independently to construct a release pair. `poll-release.py`
+uses the GitHub CLI (`gh`) to verify the latest successful `main` push in the
+expected repository/workflow. It requires successful backend/frontend checks,
+both image jobs, release publication, and a successful `deployment-checks` workflow
+for the same commit; verifies artifact commit and manifest
+run ID; and validates the two immutable references. PR builds, missing checks,
+expired artifacts, and mismatched manifests are rejected.
 
-`backup.cron` is an uninstalled template for daily backups at 03:17. Verify host
-timezone Europe/Berlin, Docker access, and failure notifications before installation.
-Backups currently remain local, with no automatic retention deletion. Choose an
-external target, encryption, retention, and storage monitoring before activation.
+Install `gh` on the host and provide a dedicated credential with read access to
+Actions artifacts via the native agent's private `GH_TOKEN` environment. Do not
+commit this token or pass it as a command argument. First verify without deploying:
 
-## Komodo preparation
+```bash
+python3 "$HOMEDASHBOARD_ROOT/cd/poll-release.py"
+```
 
-Compose follows the official [FerretDB setup](https://komo.do/docs/setup/ferretdb)
-and [upstream Compose](https://github.com/moghtech/komodo/blob/main/compose/ferretdb.compose.yaml).
-Current official MongoDB ARM64 releases require CPU capabilities beyond Cortex-A72;
-test the alternative's exact image and CPU compatibility on this Pi as well.
-Komodo has a separate database and binds port 9120 only on host loopback.
-Memory limits are initial, untested values.
+Before the workflow from this branch and PR #38 are merged and successfully run
+on `main`, this command intentionally fails instead of falling back to unverified
+images. Artifacts are retained for 90 days; an expired release requires a new
+successful build before a fresh installation can pick it up.
 
-Local `compose.env` contains generated secrets and is intentionally excluded.
-Recreate it securely on a new host using upstream configuration guidance.
-Required settings include database credentials, initial admin credentials, JWT
-and webhook secrets, registration disabled, and Core/Periphery communication keys.
-On the prepared Pi, that private file already exists. Do not print or commit it.
+Once host validation is complete, schedule a serial Komodo procedure on the native
+host agent (for example every five minutes) to invoke:
 
-Create private `images.env` defining DOCUMENTDB_IMAGE, FERRETDB_IMAGE, CORE_IMAGE,
-and PERIPHERY_IMAGE with compatible, verified ARM64 digest references. Core and
-Periphery versions must match. Missing image settings intentionally prevent startup.
-Then validate from `/home/jbroich/komodo`:
+```bash
+python3 "$HOMEDASHBOARD_ROOT/cd/poll-release.py" --deploy
+```
+
+This needs only outbound access to GitHub/GHCR, not a public deployment webhook.
+An already deployed manifest is skipped inside the deployment lock. `deploy.py`
+can also accept a trusted manifest directly for an operator-initiated deployment;
+it checks format and repositories, not CI provenance. Keep that entry point local.
+
+The deployment script locks deployments, validates immutable references, pulls both images,
+and runs `backup.sh`. Any backup command failure aborts before Compose up. It
+updates only backend and frontend, using `--no-deps`; PostgreSQL is not restarted.
+
+After startup, the backend must return HTTP 200 with JSON `{"status":"UP"}` from
+`/actuator/health`; this endpoint includes database connectivity. The frontend
+must return HTTP 200. Redirects are rejected, so a login page cannot pass as health.
+The backend image must include the Actuator changes from this branch.
+`/api/rooms` is not an application endpoint and is unsuitable for this check.
+
+After successful health checks, the script atomically writes each state file:
+
+- `deployed-release.json`: the successfully deployed manifest.
+- `previous-release.json`: the previous successful manifest, when one exists.
+- `active-images.json`: a Compose override pinning the successful images.
+
+For subsequent manual Compose operations, include `-f cd/active-images.json`
+after `-f docker-compose.yml` to preserve the pins. Plain `docker compose up`
+still uses whatever image references are in the base file.
+
+A health failure reports failure without changing successful release state.
+Candidate containers may already be running. Before the first rollout, record
+the current image digests and document a manual application rollback: there is
+no previous manifest until a successful deployment has been recorded. For later
+releases, the retained manifest can be supplied to the same deployment script.
+Test this path before enabling unattended deployment. The script never restores
+the database automatically; schema compatibility must be assessed separately,
+especially while Hibernate `ddl-auto=update` is in use.
+
+## Backups and restore verification
+
+`backup.sh` uses `pg_dump` inside the existing PostgreSQL container, custom format,
+private file permissions, a backup lock, atomic dump publication, an archive
+listing, and a SHA256 sidecar. Credentials stay inside the container. The dump
+and sidecar must stay together when copied to external storage.
+
+```bash
+bash "$HOMEDASHBOARD_ROOT/cd/backup.sh"
+python3 "$HOMEDASHBOARD_ROOT/cd/restore-test.py" /path/to/postgres-backup.dump
+```
+
+The restore test checks the checksum, creates an isolated PostgreSQL 15 container
+without network access, published ports, or production mounts, and runs
+`pg_restore --exit-on-error --single-transaction`. It queries the restored
+`public.measurement` table and reports the row count and oldest/newest timestamps.
+At least one row is required by default; use `--minimum-measurements N` when you
+know a stronger lower bound. Only the test container and its anonymous volume
+are removed afterward. Docker, Python 3.11+, and enough free disk space for a
+second copy of the database are required. A checksum/archive listing alone does
+not establish that restoration works.
+
+An initial production backup was created on the Pi during preparation. That
+specific dump still needs to be tested on the Pi. The automated integration test
+restores a generated fixture with two measurements; it does not validate the
+production dump.
+
+`backup.cron` is an uninstalled daily 03:17 template. Adjust its root directory,
+script path, and log path together for the actual installation. Create the log
+directory first. Verify host timezone Europe/Berlin, Docker access, and failure
+notifications before installing. Choose an external destination, encryption,
+retention, and storage monitoring; no offsite copy or automatic deletion is
+configured by these files.
+
+## Komodo host execution
+
+The prepared Pi has four Cortex-A72 cores, 3.7 GiB RAM, approximately 2.7 GiB
+available memory, and 16 GiB free root disk at inspection on 2026-10-18.
+Cloudflared, Zigbee2MQTT, and Mosquitto also run on this host.
+
+The separate Komodo Compose follows the official [FerretDB setup](https://komo.do/docs/setup/ferretdb).
+Current official MongoDB ARM64 images require CPU features beyond Cortex-A72.
+The alternative's exact images still need an actual compatibility test on this
+Pi. Memory limits are initial values and need observation under load.
+
+Copy `deploy/komodo/compose.yaml` to a separate Komodo directory. Configure its
+private `compose.env` using upstream guidance for the selected Core version.
+The committed `.env.example` contains only database placeholders for syntax
+validation, not a complete installation configuration. The Pi's existing private
+file also contains initial admin credentials, JWT/webhook secrets, registration
+settings, and communication keys; do not overwrite or print it.
+
+Create private `images.env` defining `DOCUMENTDB_IMAGE`, `FERRETDB_IMAGE`, and
+`CORE_IMAGE` with compatible, verified ARM64 digest references. Missing pins
+prevent startup. From the Komodo directory, validate before starting:
 
 ```bash
 docker compose -p komodo --env-file compose.env --env-file images.env -f compose.yaml config --quiet
 ```
 
-Start Komodo separately only after image compatibility checks. Verify login and
-server connection. Do not import/deploy the application automatically or let Komodo
-overwrite the existing application `.env`. Configure an SSH tunnel or protected
-Cloudflare access and back up Komodo's own database and keys.
+Run **Periphery as a native systemd service**, matching the Core version, using
+the official [server onboarding instructions](https://komo.do/docs/setup/connect-servers).
+It must run as a user with access to Docker, the runtime directory, Python 3.11+,
+Bash, `flock`, and Docker Compose. The containerized agent is intentionally not
+part of this Compose: mounting the Docker socket alone does not provide host
+tools or host loopback to commands running inside an agent container.
 
-## Validation and remaining work
+Core is bound only to host loopback on port 9120. Connect the native agent to
+that address, verify login/server connectivity, and configure an SSH tunnel or
+protected Cloudflare access for administration. Back up Komodo's database and
+keys separately. Do not let a separate Komodo Stack bypass `deploy.py` by
+independently enabling image auto-updates for the application.
 
-Bash/Python syntax was checked. A mocked backup failure confirmed no Compose up
-is reached. A real backup passed dump creation and archive listing. Restore testing,
-image compatibility, Komodo execution, authenticated CI integration, database health
-checks, rollback testing, daily scheduling, alerting, and offsite backups remain open.
+## Verification and activation checklist
+
+Run deployment tests on Linux:
+
+```bash
+HOMEDASHBOARD_RUN_DOCKER_TESTS=1 python3 -m unittest discover -s deploy/cd/tests -v
+bash -n deploy/cd/backup.sh
+```
+
+CI runs these tests, including an isolated PostgreSQL restore, Compose validation,
+and the backend suite. Backup-gate failure, unhealthy deployment state, mutable
+image rejection, and successful release state retention have automated coverage.
+
+Remaining host work: test the actual production dump, verify the pinned Komodo
+images, onboard native Periphery, establish a baseline rollback, test a deployment,
+configure the read-only GitHub credential, external backup destination and
+monitoring, and activate scheduling. The first real manifest/Actions download
+must be verified after merging the prerequisite PRs; it cannot be exercised
+against a branch that has never published a production release artifact.

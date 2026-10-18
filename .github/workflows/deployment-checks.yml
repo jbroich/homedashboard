@@ -1,0 +1,54 @@
+name: deployment-checks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deployment-scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+      - name: Check backup shell syntax
+        run: bash -n deploy/cd/backup.sh
+      - name: Verify backup gate, health gate, and isolated PostgreSQL restore
+        env:
+          HOMEDASHBOARD_RUN_DOCKER_TESTS: '1'
+        run: python3 -m unittest discover -s deploy/cd/tests -v
+      - name: Validate app Compose with example settings
+        run: docker compose --env-file .env.example config --quiet
+      - name: Validate Komodo Compose with example settings
+        run: |
+          temporary_env=$(mktemp)
+          trap 'rm -f "$temporary_env" deploy/komodo/compose.env' EXIT
+          cp deploy/komodo/.env.example deploy/komodo/compose.env
+          python3 - "$temporary_env" <<'PY'
+          import sys
+          from pathlib import Path
+          digest = 'sha256:' + 'a' * 64
+          Path(sys.argv[1]).write_text('\n'.join(f'{key}=example.invalid/validation@{digest}' for key in ('DOCUMENTDB_IMAGE', 'FERRETDB_IMAGE', 'CORE_IMAGE')) + '\n')
+          PY
+          docker compose --env-file deploy/komodo/compose.env --env-file "$temporary_env" -f deploy/komodo/compose.yaml config --quiet
+
+  backend-health:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+          cache-dependency-path: backend/pom.xml
+      - name: Run backend tests including database health
+        working-directory: backend
+        run: bash ./mvnw --batch-mode test

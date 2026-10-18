@@ -17,6 +17,8 @@ env:
 jobs:
   backend-image:
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -35,6 +37,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: backend
@@ -72,6 +75,8 @@ jobs:
 
   frontend-image:
     runs-on: ubuntu-latest
+    outputs:
+      digest: ${{ steps.image.outputs.digest }}
     needs:
       - frontend-checks
     steps:
@@ -92,6 +97,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push image
+        id: image
         uses: docker/build-push-action@v6
         with:
           context: frontend
@@ -101,3 +107,37 @@ jobs:
             ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest
             ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:${{ github.sha }}
           platforms: linux/arm64
+
+  release-manifest:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend-image, frontend-image]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pair immutable images from this workflow run
+        env:
+          COMMIT: ${{ github.sha }}
+          REPOSITORY: ${{ github.repository }}
+          RUN_ID: ${{ github.run_id }}
+          BACKEND_DIGEST: ${{ needs.backend-image.outputs.digest }}
+          FRONTEND_DIGEST: ${{ needs.frontend-image.outputs.digest }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          import re
+          release = {'commit': os.environ['COMMIT'], 'repository': os.environ['REPOSITORY'], 'run_id': int(os.environ['RUN_ID'])}
+          for service in ('backend', 'frontend'):
+              digest = os.environ[service.upper() + '_DIGEST']
+              if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+                  raise SystemExit('Image build did not return an immutable digest')
+              release[service] = f"ghcr.io/{os.environ[service.upper() + '_IMAGE_NAME']}@{digest}"
+          Path('release.json').write_text(json.dumps(release, indent=2) + '\n')
+          PY
+      - name: Publish the paired release manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: homedashboard-release
+          path: release.json
+          if-no-files-found: error
+          retention-days: 90

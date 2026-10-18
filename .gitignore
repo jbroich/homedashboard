@@ -63,12 +63,17 @@ frontend/.env.*
 Thumbs.db
 
 ### Deployment secrets and runtime output ###
+/cd/
+/backups/
 /deploy/komodo/*.env
 /deploy/komodo/backups/
 /deploy/cd/backups/
 /deploy/cd/.deploy.lock
 /deploy/cd/candidate.json
 /deploy/cd/deployed-release.json
+/deploy/cd/previous-release.json
+/deploy/cd/active-images.json
+/deploy/cd/*.json.tmp
 **/__pycache__/
 *.dump
 *.dump.sha256

@@ -1,12 +1,12 @@
-# Prepared only. Set all four immutable ARM64 image references in images.env.
+# Prepared only. Set the three immutable ARM64 image references in images.env.
 # FerretDB avoids the CPU requirements of current MongoDB on Cortex-A72.
 services:
   postgres:
     image: ${DOCUMENTDB_IMAGE:?Set verified ARM64 digest in images.env}
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${KOMODO_DATABASE_USERNAME}
-      POSTGRES_PASSWORD: ${KOMODO_DATABASE_PASSWORD}
+      POSTGRES_USER: ${KOMODO_DATABASE_USERNAME:?Set database username in compose.env}
+      POSTGRES_PASSWORD: ${KOMODO_DATABASE_PASSWORD:?Set database password in compose.env}
       POSTGRES_DB: postgres
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -33,18 +33,8 @@ services:
       - keys:/config/keys
       - ./backups:/backups
     mem_limit: 512m
-  periphery:
-    image: ${PERIPHERY_IMAGE:?Set matching verified ARM64 digest in images.env}
-    init: true
-    restart: unless-stopped
-    depends_on: [core]
-    env_file: compose.env
-    volumes:
-      - keys:/config/keys
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /proc:/proc:ro
-      - /home/jbroich/homedashboard:/home/jbroich/homedashboard
-    mem_limit: 256m
+# Run Periphery as a native systemd service so commands use host Python, Bash,
+# flock, Docker Compose, and loopback. See ../cd/README.md for onboarding.
 volumes:
   postgres-data:
   ferretdb-state:
