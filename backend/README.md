@@ -28,3 +28,17 @@ Run the complete suite before merging. CI runs it on a Docker-capable runner
 before publishing the backend image. The Dockerfile skips test execution because
 Docker image build stages do not provide the Docker engine needed by
 Testcontainers.
+
+To run the tests and build the executable Spring Boot package:
+
+```powershell
+.\mvnw.cmd --batch-mode verify
+```
+
+The resulting package is `target/homedashboard-0.0.1-SNAPSHOT.jar`. CI runs the
+same verification on pull requests and `main`, and uploads the executable JAR
+and test reports as commit-specific workflow artifacts retained for 14 days.
+The frontend checks also export and upload a static web package. Both ARM64
+images are built after the checks succeed, including on pull requests. Images
+are published to GHCR only on non-pull-request runs; each published image
+receives the full commit SHA tag as well as `latest`.
