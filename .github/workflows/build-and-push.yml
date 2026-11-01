@@ -96,6 +96,8 @@ jobs:
         with:
           context: frontend
           file: frontend/Dockerfile
+          build-args: |
+            EXPO_PUBLIC_API_BASE_URL=${{ vars.EXPO_PUBLIC_API_BASE_URL || '/' }}
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.FRONTEND_IMAGE_NAME }}:latest

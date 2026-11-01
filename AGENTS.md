@@ -26,9 +26,13 @@ The intended data flow is:
 sensors / Zigbee2MQTT -> MQTT -> Spring Boot backend -> PostgreSQL -> REST API
 ```
 
-The frontend talks to the backend REST API. In the Docker stack, frontend
-browser requests go through the frontend container's `/api/` proxy to the
-backend service.
+The frontend API base URL is configured at build time through
+`EXPO_PUBLIC_API_BASE_URL`. Local development uses `frontend/.env.local`.
+The image workflow reads the GitHub Actions repository variable of the same
+name, defaulting to `/` for the current frontend container's `/api/` proxy.
+A future separate API gateway can be selected through that build variable.
+Changing the deployed API base URL requires rebuilding the frontend image;
+Compose runtime variables do not configure browser JavaScript.
 
 ## Agent Focus Areas
 
